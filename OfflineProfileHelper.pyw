@@ -8,7 +8,11 @@ from tkinter import Tk, messagebox, ttk
 from typing import Any, TypedDict
 from urllib.parse import urljoin
 
-import requests
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
 
 
 TITLE = "Offline Profile Helper"
@@ -37,11 +41,11 @@ ROOT.title(TITLE)
 FRAME = ttk.Frame(ROOT, padding=2)
 FRAME.grid()
 
-DOWNLOAD_BUTTON = ttk.Button(FRAME, text="Download Profile")
+DOWNLOAD_BUTTON = ttk.Button(FRAME, text="Download Profile", state="normal" if HAS_REQUESTS else "disabled")
 DOWNLOAD_BUTTON.grid(column=0, row=0)
 OVERWRITE_BUTTON = ttk.Button(FRAME, text="Overwrite Profile")
 OVERWRITE_BUTTON.grid(column=0, row=1)
-UPLOAD_BUTTON = ttk.Button(FRAME, text="Upload Profile")
+UPLOAD_BUTTON = ttk.Button(FRAME, text="Upload Profile", state="normal" if HAS_REQUESTS else "disabled")
 UPLOAD_BUTTON.grid(column=0, row=2)
 
 ttk.Label(FRAME, text="Current Server") \
@@ -188,9 +192,9 @@ def download_profile():
 
     while True:
         try:
-            resp = requests.post(login_url, data=compress(creds), timeout=3)
+            resp = requests.post(login_url, data=compress(creds), timeout=3)  # pyright: ignore[reportPossiblyUnboundVariable]
             break
-        except (requests.Timeout, requests.ConnectionError):
+        except (requests.Timeout, requests.ConnectionError):  # pyright: ignore[reportPossiblyUnboundVariable]
             retry = error("Cannot connect to remote server. Is it running?", retry=True)
             if not retry:
                 return
@@ -200,7 +204,7 @@ def download_profile():
         return
 
     session_id: str = zlib.decompress(resp.content).decode()
-    resp = requests.post(download_url, headers={"Cookie": f"PHPSESSID={session_id}"}, data=compress({}))
+    resp = requests.post(download_url, headers={"Cookie": f"PHPSESSID={session_id}"}, data=compress({}))  # pyright: ignore[reportPossiblyUnboundVariable]
 
     if not resp.ok:
         error("Server returned error trying to download. Is fika installed?")
@@ -223,9 +227,9 @@ def upload_profile():
 
     while True:
         try:
-            resp = requests.post(upload_url, data=compress(profile), timeout=3)
+            resp = requests.post(upload_url, data=compress(profile), timeout=3)  # pyright: ignore[reportPossiblyUnboundVariable]
             break
-        except (requests.Timeout, requests.ConnectionError):
+        except (requests.Timeout, requests.ConnectionError):  # pyright: ignore[reportPossiblyUnboundVariable]
             retry = error("Cannot connect to remote server. Is it running?", retry=True)
             if not retry:
                 return
