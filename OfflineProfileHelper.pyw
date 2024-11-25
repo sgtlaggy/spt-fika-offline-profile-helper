@@ -12,7 +12,11 @@ import requests
 
 
 TITLE = "Offline Profile Helper"
-GAME_DIR = Path(sys.executable).parent
+
+if getattr(sys, "frozen", False):  # PyInstaller-specific(?) check
+    GAME_DIR = Path(sys.executable).parent
+else:                              # not packed, just the script being run
+    GAME_DIR = Path(__file__).parent
 GAME_EXE = GAME_DIR / "EscapeFromTarkov.exe"
 
 USER_PROFILES = GAME_DIR / "user" / "profiles"
