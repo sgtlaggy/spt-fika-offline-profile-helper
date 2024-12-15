@@ -153,9 +153,12 @@ def find_profile(dir: Path) -> tuple[Path, dict] | tuple[None, None]:
         return None, None
 
     for fp in dir.iterdir():
+        if not fp.is_file():
+            continue
+
         try:
             profile = load_json(fp)
-        except Exception as e:
+        except Exception:
             continue
         if profile['info']['username'] == current_username:
             return fp, profile
