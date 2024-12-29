@@ -20,3 +20,4 @@ call venv\Scripts\activate.bat
 
 py -m pip install -Ur exe-requirements.txt
 py -m PyInstaller -Fw OfflineProfileHelper.pyw
+pause

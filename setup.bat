@@ -16,3 +16,4 @@ py -m pip install -r requirements.txt
 
 echo
 echo All set up and ready to go!
+pause
