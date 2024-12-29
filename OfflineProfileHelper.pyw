@@ -248,6 +248,8 @@ def upload_profile():
 if not GAME_EXE.exists():
     error('EscapeFromTarkov.exe not found.', exit=True)
 
+FIKA_PROFILES.mkdir(parents=True, exist_ok=True)
+USER_PROFILES.mkdir(parents=True, exist_ok=True)
 LAUNCHER_CONFIG = LauncherConfigs()
 
 update_server_label()
