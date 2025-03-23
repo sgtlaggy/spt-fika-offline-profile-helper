@@ -35,7 +35,7 @@ UPLOAD_ENDPOINT = "/helper/profile/upload"
 
 
 ROOT = Tk()
-ROOT.resizable(False, False)
+ROOT.resizable(False, False)  # noqa: FBT003
 ROOT.title(TITLE)
 
 FRAME = ttk.Frame(ROOT, padding=2)
@@ -112,7 +112,7 @@ class LauncherConfigs:
         return '127.0.0.1' in self.current['Server']['Url']
 
 
-def error(message: str, *, retry=False, exit=False) -> bool | None:
+def error(message: str, *, retry=False, exit=False) -> bool | None:  # noqa: A002
     if retry:
         return messagebox.askretrycancel(TITLE, message)
     else:
@@ -147,7 +147,7 @@ def decompress(b: bytes) -> Any:
     return json.loads(zlib.decompress(b))
 
 
-def find_profile(dir: Path) -> tuple[Path, dict] | tuple[None, None]:
+def find_profile(dir: Path) -> tuple[Path, dict] | tuple[None, None]:  # noqa: A002
     current_username = LAUNCHER_CONFIG.current["Server"]["AutoLoginCreds"]["Username"]
     if not dir.exists():
         return None, None
@@ -158,7 +158,7 @@ def find_profile(dir: Path) -> tuple[Path, dict] | tuple[None, None]:
 
         try:
             profile = load_json(fp)
-        except Exception:
+        except Exception:  # noqa: S112
             continue
         if profile['info']['username'] == current_username:
             return fp, profile
@@ -189,7 +189,7 @@ def download_profile():
     login_url = urljoin(LAUNCHER_CONFIG.remote["Server"]["Url"], LOGIN_ENDPOINT)
     download_url = urljoin(LAUNCHER_CONFIG.remote["Server"]["Url"], DOWNLOAD_ENDPOINT)
 
-    creds: dict[str, str] = LAUNCHER_CONFIG.remote["Server"]["AutoLoginCreds"].copy()  # type: ignore
+    creds: dict[str, str] = LAUNCHER_CONFIG.remote["Server"]["AutoLoginCreds"].copy()
     creds['username'] = creds.pop('Username')
     creds['password'] = creds.pop('Password')
 
