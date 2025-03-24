@@ -1,3 +1,4 @@
+# ruff: noqa: S310  # suppress warnings about urllib protocols
 import json
 import shutil
 import sys
@@ -6,13 +7,9 @@ from copy import deepcopy
 from pathlib import Path
 from tkinter import Tk, messagebox, ttk
 from typing import Any, TypedDict
+from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
-
-try:
-    import requests
-    HAS_REQUESTS = True
-except ImportError:
-    HAS_REQUESTS = False
+from urllib.request import Request, urlopen
 
 
 TITLE = "Offline Profile Helper"
@@ -41,11 +38,11 @@ ROOT.title(TITLE)
 FRAME = ttk.Frame(ROOT, padding=2)
 FRAME.grid()
 
-DOWNLOAD_BUTTON = ttk.Button(FRAME, text="Download Profile", state="normal" if HAS_REQUESTS else "disabled")
+DOWNLOAD_BUTTON = ttk.Button(FRAME, text="Download Profile")
 DOWNLOAD_BUTTON.grid(column=0, row=0)
 OVERWRITE_BUTTON = ttk.Button(FRAME, text="Overwrite Profile")
 OVERWRITE_BUTTON.grid(column=0, row=1)
-UPLOAD_BUTTON = ttk.Button(FRAME, text="Upload Profile", state="normal" if HAS_REQUESTS else "disabled")
+UPLOAD_BUTTON = ttk.Button(FRAME, text="Upload Profile")
 UPLOAD_BUTTON.grid(column=0, row=2)
 
 ttk.Label(FRAME, text="Current Server") \
@@ -83,18 +80,19 @@ class LauncherConfigs:
             self.current = self.local = \
             load_json(LAUNCHER_CONFIG_FILE)
         elif not LAUNCHER_CONFIG_FILE.exists():
-            error('Launcher config file not found.', exit=True)
+            error('Launcher config file not found.')
+            sys.exit()
         else:  # first launch, no backup config files
             current = load_json(LAUNCHER_CONFIG_FILE)
             if '127.0.0.1' in current['Server']['Url']:
-                error('Remote URL not set in launcher settings.', exit=True)
+                error('Remote URL not set in launcher settings.')
+                sys.exit()
             self.current = self.remote = current
             self.local = deepcopy(current)
             self.local['Server']['Url'] = 'http://127.0.0.1:6969'
             LOCAL_CONFIG_FILE.write_text(json.dumps(self.local, indent=2))
 
         SWITCH_BUTTON.config(command=self.switch)
-
 
     def switch(self):
         if self.is_local:
@@ -112,14 +110,8 @@ class LauncherConfigs:
         return '127.0.0.1' in self.current['Server']['Url']
 
 
-def error(message: str, *, retry=False, exit=False) -> bool | None:  # noqa: A002
-    if retry:
-        return messagebox.askretrycancel(TITLE, message)
-    else:
-        messagebox.showerror(TITLE, message)
-
-    if exit:
-        sys.exit()
+def error(message: str):
+    messagebox.showerror(TITLE, message)
 
 
 def info(message: str):
@@ -139,12 +131,61 @@ def load_json(fp: Path):
     return json.loads(fp.read_text('utf-8'))
 
 
-def compress(obj: dict) -> bytes:
+def compress_json(obj: dict) -> bytes:
     return zlib.compress(json.dumps(obj).encode())
 
 
-def decompress(b: bytes) -> Any:
+def decompress_json(b: bytes) -> Any:
     return json.loads(zlib.decompress(b))
+
+
+def _request(endpoint: str, *, data: dict | None = None,
+            session_id: str | None = None) -> str | None:
+    req = Request(urljoin(LAUNCHER_CONFIG.remote["Server"]["Url"], endpoint))
+    req.data = compress_json(data or {})
+    if session_id:
+        req.add_header("Cookie", f"PHPSESSID={session_id}")
+
+    try:
+        resp = urlopen(req, timeout=3)
+    except URLError:
+        error("Failed to connect.\nIs the server running?")
+    except TimeoutError:
+        error("Request timed out.")
+    except HTTPError as e:
+        error(f"Server returned unexpected error {e.status}.")
+    except Exception as e:
+        error(f"Unknown error:\n{e}")
+    else:
+        return zlib.decompress(resp.read()).decode()
+
+
+def login() -> tuple[int, str] | tuple[None, None]:
+    creds: dict[str, str] = LAUNCHER_CONFIG.remote["Server"]["AutoLoginCreds"].copy()
+    creds['username'] = creds.pop('Username')
+    creds['password'] = creds.pop('Password')
+
+    data = _request(LOGIN_ENDPOINT, data=creds)
+
+    if data is not None:
+        return 200, data
+
+    return None, None
+
+
+def request(endpoint: str, *, data: dict | None = None,
+            session_id: str | None = None) -> tuple[int, dict] | tuple[None, None]:
+    resp = _request(endpoint, data=data, session_id=session_id)
+    if resp is None:
+        return None, None
+
+    data = json.loads(resp)
+
+    err = data.get('err')
+    if err:
+        return err, data.get('errmsg')
+
+    return 200, data
 
 
 def find_profile(dir: Path) -> tuple[Path, dict] | tuple[None, None]:  # noqa: A002
@@ -186,34 +227,24 @@ def overwrite_profile():
 
 @callback(DOWNLOAD_BUTTON)
 def download_profile():
-    login_url = urljoin(LAUNCHER_CONFIG.remote["Server"]["Url"], LOGIN_ENDPOINT)
-    download_url = urljoin(LAUNCHER_CONFIG.remote["Server"]["Url"], DOWNLOAD_ENDPOINT)
 
-    creds: dict[str, str] = LAUNCHER_CONFIG.remote["Server"]["AutoLoginCreds"].copy()
-    creds['username'] = creds.pop('Username')
-    creds['password'] = creds.pop('Password')
-
-    while True:
-        try:
-            resp = requests.post(login_url, data=compress(creds), timeout=3)  # pyright: ignore[reportPossiblyUnboundVariable]
-            break
-        except (requests.Timeout, requests.ConnectionError):  # pyright: ignore[reportPossiblyUnboundVariable]
-            retry = error("Cannot connect to remote server. Is it running?", retry=True)
-            if not retry:
-                return
-
-    if not resp.ok:
-        error("Server returned error on login.")
+    status, session_id = login()
+    if status is None:
+        return
+    elif status != 200:
+        error(f"Unexpected response:\n{status} {session_id}")
         return
 
-    session_id: str = zlib.decompress(resp.content).decode()
-    resp = requests.post(download_url, headers={"Cookie": f"PHPSESSID={session_id}"}, data=compress({}))  # pyright: ignore[reportPossiblyUnboundVariable]
-
-    if not resp.ok:
-        error("Server returned error trying to download. Is fika installed?")
+    status, profile = request(DOWNLOAD_ENDPOINT, session_id=session_id)
+    if status is None:
+        return
+    elif status == 404:
+        error("Failed to download profile.\nIs Fika installed on the server?")
+        return
+    elif status != 200:
+        error(f"Unexpected response:\n{status} {profile}")
         return
 
-    profile = decompress(resp.content)
     fp = FIKA_PROFILES / f'{session_id}.json'
     fp.write_text(json.dumps(profile, indent='\t'))
     info("Profile downloaded successfully.")
@@ -221,24 +252,22 @@ def download_profile():
 
 @callback(UPLOAD_BUTTON)
 def upload_profile():
-    upload_url = urljoin(LAUNCHER_CONFIG.remote["Server"]["Url"], UPLOAD_ENDPOINT)
-
     _, profile = find_profile(USER_PROFILES)
     if profile is None:
         error("Failed to find local profile.")
         return
 
-    while True:
-        try:
-            resp = requests.post(upload_url, data=compress(profile), timeout=3)  # pyright: ignore[reportPossiblyUnboundVariable]
-            break
-        except (requests.Timeout, requests.ConnectionError):  # pyright: ignore[reportPossiblyUnboundVariable]
-            retry = error("Cannot connect to remote server. Is it running?", retry=True)
-            if not retry:
-                return
+    status, data = request(UPLOAD_ENDPOINT, data=profile)
+    if status is None:
+        return
+    elif status == 404:
+        error("Failed to upload profile.\nIs the server mod installed?")
+        return
+    elif status != 200:
+        error(f"Unexpected response:\n{status} {data}")
+        return
 
-    resp_data: dict = decompress(resp.content)
-    message: str | None = resp_data['message']
+    message: str | None = data['message']
     if message is None:
         info("Profile uploaded successfully.")
     else:
@@ -246,7 +275,8 @@ def upload_profile():
 
 
 if not GAME_EXE.exists():
-    error('EscapeFromTarkov.exe not found.', exit=True)
+    error('EscapeFromTarkov.exe not found.')
+    sys.exit()
 
 FIKA_PROFILES.mkdir(parents=True, exist_ok=True)
 USER_PROFILES.mkdir(parents=True, exist_ok=True)
