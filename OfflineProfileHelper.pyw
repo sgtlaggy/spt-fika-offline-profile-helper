@@ -1,6 +1,7 @@
 # ruff: noqa: S310  # suppress warnings about urllib protocols
 import json
 import shutil
+import ssl
 import sys
 import zlib
 from copy import deepcopy
@@ -29,6 +30,10 @@ REMOTE_CONFIG_FILE = LAUNCHER_CONFIG_FILE.with_suffix(".json.remote")
 LOGIN_ENDPOINT = "/launcher/profile/login"
 DOWNLOAD_ENDPOINT = "/fika/profile/download"
 UPLOAD_ENDPOINT = "/helper/profile/upload"
+
+SELF_SIGNED_SSL = ssl.create_default_context()
+SELF_SIGNED_SSL.check_hostname = False
+SELF_SIGNED_SSL.verify_mode = ssl.CERT_NONE
 
 
 ROOT = Tk()
@@ -89,7 +94,7 @@ class LauncherConfigs:
                 sys.exit()
             self.current = self.remote = current
             self.local = deepcopy(current)
-            self.local['Server']['Url'] = 'http://127.0.0.1:6969'
+            self.local['Server']['Url'] = 'https://127.0.0.1:6969'
             LOCAL_CONFIG_FILE.write_text(json.dumps(self.local, indent=2))
 
         SWITCH_BUTTON.config(command=self.switch)
@@ -147,7 +152,7 @@ def _request(endpoint: str, *, data: dict | None = None,
         req.add_header("Cookie", f"PHPSESSID={session_id}")
 
     try:
-        resp = urlopen(req, timeout=3)
+        resp = urlopen(req, timeout=3, context=SELF_SIGNED_SSL)
     except URLError:
         error("Failed to connect.\nIs the server running?")
     except TimeoutError:
@@ -161,9 +166,15 @@ def _request(endpoint: str, *, data: dict | None = None,
 
 
 def login() -> tuple[int, str] | tuple[None, None]:
-    creds: dict[str, str] = LAUNCHER_CONFIG.remote["Server"]["AutoLoginCreds"].copy()
-    creds['username'] = creds.pop('Username')
-    creds['password'] = creds.pop('Password')
+    orig_creds: dict[str, str] = LAUNCHER_CONFIG.remote["Server"]["AutoLoginCreds"]
+    if orig_creds is None:
+        error('Cannot find profile name, launcher is not logged in.')
+        return
+
+    creds = {
+        'username': orig_creds['Username'],
+        'password': orig_creds['Password']
+    }
 
     data = _request(LOGIN_ENDPOINT, data=creds)
 
