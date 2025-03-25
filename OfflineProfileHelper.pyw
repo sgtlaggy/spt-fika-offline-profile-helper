@@ -9,7 +9,7 @@ from pathlib import Path
 from tkinter import Tk, messagebox, ttk
 from typing import Any, TypedDict
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 
@@ -92,9 +92,13 @@ class LauncherConfigs:
             if '127.0.0.1' in current['Server']['Url']:
                 error('Remote URL not set in launcher settings.')
                 sys.exit()
+
             self.current = self.remote = current
             self.local = deepcopy(current)
-            self.local['Server']['Url'] = 'https://127.0.0.1:6969'
+
+            url = urlparse(self.local['Server']['Url'])
+            self.local['Server']['Url'] = f'{url.scheme}://127.0.0.1:6969'
+
             LOCAL_CONFIG_FILE.write_text(json.dumps(self.local, indent=2))
 
         SWITCH_BUTTON.config(command=self.switch)
