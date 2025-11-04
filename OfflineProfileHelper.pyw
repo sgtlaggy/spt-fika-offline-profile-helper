@@ -114,12 +114,12 @@ class HTTP:
 
         try:
             resp = urlopen(req, timeout=3, context=self._ssl)
+        except HTTPError as e:
+            error(f"Server returned unexpected error {e.status}.")
         except URLError:
             error("Failed to connect.\nIs the server running?")
         except TimeoutError:
             error("Request timed out.")
-        except HTTPError as e:
-            error(f"Server returned unexpected error {e.status}.")
         except Exception as e:
             error(f"Unknown error:\n{e}")
         else:
