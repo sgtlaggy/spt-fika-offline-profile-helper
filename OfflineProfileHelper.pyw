@@ -129,7 +129,7 @@ class HTTP:
             -> tuple[int, str] | tuple[None, None]:
         if credentials is None:
             error('Cannot find profile name, launcher is not logged in.')
-            return
+            return None, None
 
         creds = {
             'username': credentials['Username'],
