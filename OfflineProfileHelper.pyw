@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env pythonw3
 import json
 import shutil
 import ssl
