@@ -234,6 +234,7 @@ class MainWindow(tk.Tk):
     launcher_config: LauncherConfigFile
     app_config: AppConfigFile
 
+    upload_button: ttk.Button
     server_list: ttk.Combobox
 
     def __init__(self, *args, **kwargs):
@@ -251,7 +252,9 @@ class MainWindow(tk.Tk):
 
         ttk.Button(outer_frame, text="Download Profile", command=self.download_profile).grid(column=0, row=0, sticky=tk.EW)
         ttk.Button(outer_frame, text="Overwrite Profile", command=self.overwrite_profile).grid(column=0, row=1, sticky=tk.EW)
-        ttk.Button(outer_frame, text="Upload Profile", command=self.upload_profile).grid(column=0, row=2, sticky=tk.EW)
+        self.upload_button = ttk.Button(outer_frame, text="Upload Profile", command=self.upload_profile)
+        self.upload_button.grid(column=0, row=2, sticky=tk.EW)
+        self.update_upload_button()
 
         ttk.Label(outer_frame, text="Current Server").grid(column=1, row=0)
         self.server_list = ttk.Combobox(outer_frame, state="readonly", width=15)
@@ -379,14 +382,21 @@ class MainWindow(tk.Tk):
         else:
             error(message)
 
+    def update_upload_button(self):
+        server = self.app_config.current_server
+        if server['FikaApiKey']:
+            self.upload_button.configure(state='normal')
+        else:
+            self.upload_button.configure(state='disabled')
+
     def server_selected(self, _):
         if self.server_list.current() == self.app_config.current_index:
             return
 
         self.app_config.current_index = self.server_list.current()
-        server = self.app_config.current_server
+        self.launcher_config.set_server(self.app_config.current_server)
 
-        self.launcher_config.set_server(server)
+        self.update_upload_button()
 
     def update_server_list(self):
         self.server_list.configure(values=[server["Name"] for server in self.app_config.data])
@@ -399,6 +409,7 @@ class MainWindow(tk.Tk):
         if window.server is not None:
             self.app_config.add_server(window.server)
             self.update_server_list()
+            self.update_upload_button()
 
     def delete_server(self):
         server = self.app_config.current_server
@@ -409,6 +420,7 @@ class MainWindow(tk.Tk):
         if confirm:
             self.app_config.remove_server()
             self.update_server_list()
+            self.update_upload_button()
 
     def edit_server(self):
         window = EditServerWindow.prefill(self, self.app_config.current_server)
@@ -417,6 +429,7 @@ class MainWindow(tk.Tk):
         if window.server is not None:
             self.app_config.update_server(window.server)
             self.update_server_list()
+            self.update_upload_button()
 
 
 class EditServerWindow(tk.Toplevel):
