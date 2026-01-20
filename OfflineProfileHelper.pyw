@@ -235,6 +235,7 @@ class MainWindow(tk.Tk):
     app_config: AppConfigFile
 
     upload_button: ttk.Button
+    delete_button: ttk.Button
     server_list: ttk.Combobox
 
     def __init__(self, *args, **kwargs):
@@ -258,13 +259,15 @@ class MainWindow(tk.Tk):
 
         ttk.Label(outer_frame, text="Current Server").grid(column=1, row=0)
         self.server_list = ttk.Combobox(outer_frame, state="readonly", width=15)
-        self.update_server_list()
         self.server_list.bind("<<ComboboxSelected>>", self.server_selected)
         self.server_list.grid(column=1, row=1, sticky=tk.EW)
+        self.update_server_list()
         server_btn_frame = ttk.Frame(outer_frame)
         server_btn_frame.grid(column=1, row=2, sticky=tk.EW)
         ttk.Button(server_btn_frame, text="+", command=self.add_server, width=2).pack(side="left")
-        ttk.Button(server_btn_frame, text="-", command=self.delete_server, width=2).pack(side="left")
+        self.delete_button = ttk.Button(server_btn_frame, text="-", command=self.delete_server, width=2)
+        self.delete_button.pack(side="left")
+        self.update_delete_button()
         ttk.Button(server_btn_frame, text="Edit", command=self.edit_server).pack(side="right")
 
     def _get_local_profile(self) -> dict | None:
@@ -410,6 +413,7 @@ class MainWindow(tk.Tk):
             self.app_config.add_server(window.server)
             self.update_server_list()
             self.update_upload_button()
+            self.update_delete_button()
 
     def delete_server(self):
         server = self.app_config.current_server
@@ -421,6 +425,13 @@ class MainWindow(tk.Tk):
             self.app_config.remove_server()
             self.update_server_list()
             self.update_upload_button()
+            self.update_delete_button()
+
+    def update_delete_button(self):
+        if len(self.app_config.data) > 1:
+            self.delete_button.configure(state='normal')
+        else:
+            self.delete_button.configure(state='disabled')
 
     def edit_server(self):
         window = EditServerWindow.prefill(self, self.app_config.current_server)
