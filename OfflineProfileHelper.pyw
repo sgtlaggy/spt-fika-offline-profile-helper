@@ -57,7 +57,7 @@ class ConfigFile:
         return self
 
     def save(self):
-        self.filepath.write_text(json.dumps(self.data))
+        self.filepath.write_text(json.dumps(self.data, indent=2))
 
 class LauncherConfigFile(ConfigFile):
     filepath = GAME_DIR / "SPT" / "user" / "launcher" / "config.json"
