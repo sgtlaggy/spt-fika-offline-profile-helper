@@ -18,7 +18,7 @@ TITLE = "OPH"
 
 if getattr(sys, "frozen", False):  # PyInstaller-specific(?) check
     GAME_DIR = Path(sys.executable).parent
-else:                              # not packed, just the script being run
+else:  # not packed, just the script being run
     GAME_DIR = Path(__file__).parent
 GAME_EXE = GAME_DIR / "EscapeFromTarkov.exe"
 
@@ -30,10 +30,12 @@ FIKA_PROFILES = GAME_DIR / "SPT" / "user" / "fika"
 class AutoLoginCreds(TypedDict):
     Username: str
 
+
 class ServerConfig(TypedDict):
     Name: str
     Url: str
     AutoLoginCreds: AutoLoginCreds
+
 
 class LauncherConfig(TypedDict):
     Server: ServerConfig
@@ -51,7 +53,7 @@ class ConfigFile:
 
     def load(self) -> Self:
         if not self.filepath.exists():
-            msg = f'{self.filepath} does not exist.'
+            msg = f"{self.filepath} does not exist."
             raise FileNotFoundError(msg)
 
         self.data = json.loads(self.filepath.read_text())
@@ -60,18 +62,19 @@ class ConfigFile:
     def save(self):
         self.filepath.write_text(json.dumps(self.data, indent=2))
 
+
 class LauncherConfigFile(ConfigFile):
     filepath = GAME_DIR / "SPT" / "user" / "launcher" / "config.json"
     data: LauncherConfig
 
     def set_server(self, server: ConfigServer):
-        self.data['Server']['Name'] = server['Name']
-        self.data['Server']['Url'] = server['Url']
+        self.data["Server"]["Name"] = server["Name"]
+        self.data["Server"]["Url"] = server["Url"]
         self.save()
 
     @property
     def is_local(self) -> bool:
-        return '127.0.0.1' in self.data['Server']['Url']
+        return "127.0.0.1" in self.data["Server"]["Url"]
 
     @property
     def username(self) -> str:
@@ -79,7 +82,7 @@ class LauncherConfigFile(ConfigFile):
 
 
 class AppConfigFile(ConfigFile):
-    filepath = GAME_DIR / 'OfflineProfileHelper.json'
+    filepath = GAME_DIR / "OfflineProfileHelper.json"
     data: list[ConfigServer]
     current_index: int = 0
 
@@ -93,7 +96,9 @@ class AppConfigFile(ConfigFile):
 
     def ensure_default_servers(self, launcher_config: LauncherConfig):
         if len(self.data) == 0:
-            local = ConfigServer(Name="local", Url="https://127.0.0.1:6969", FikaApiKey="")
+            local = ConfigServer(
+                Name="local", Url="https://127.0.0.1:6969", FikaApiKey=""
+            )
             self.data.append(local)
 
         current_url = launcher_config["Server"]["Url"]
@@ -144,15 +149,18 @@ class HTTP:
     def decompress_json(b: bytes) -> Any:
         return json.loads(zlib.decompress(b))
 
-    def _request(self, url: str, *,  # noqa: C901 complexity
-                 data: dict | None = None,
-                 session_id: str | None = None,
-                 fika_api_key: str | None = None,
-                 compress: bool = True,
-                 expected_codes: Sequence[int] = (200,)) \
-                 -> tuple[int, str] | tuple[None, None]:
-        if not url.startswith(('http:', 'https:')):
-            error('Invalid server URL.')
+    def _request(  # noqa: C901 complexity
+        self,
+        url: str,
+        *,
+        data: dict | None = None,
+        session_id: str | None = None,
+        fika_api_key: str | None = None,
+        compress: bool = True,
+        expected_codes: Sequence[int] = (200,),
+    ) -> tuple[int, str] | tuple[None, None]:
+        if not url.startswith(("http:", "https:")):
+            error("Invalid server URL.")
             return None, None
 
         req = Request(url)
@@ -189,15 +197,14 @@ class HTTP:
 
         return None, None
 
-    def login(self, server_url: str, credentials: AutoLoginCreds) \
-            -> tuple[int, str] | tuple[None, None]:
+    def login(
+        self, server_url: str, credentials: AutoLoginCreds
+    ) -> tuple[int, str] | tuple[None, None]:
         if credentials is None:
-            error('Cannot find profile name, launcher is not logged in.')
+            error("Cannot find profile name, launcher is not logged in.")
             return None, None
 
-        creds = {
-            'username': credentials['Username']
-        }
+        creds = {"username": credentials["Username"]}
 
         url = urljoin(server_url, self.LOGIN_ENDPOINT)
         _, data = self._request(url, data=creds)
@@ -207,19 +214,25 @@ class HTTP:
 
         return None, None
 
-    def request(self, url: str, *,
-                data: dict | None = None,
-                session_id: str | None = None,
-                fika_api_key: str | None = None,
-                compress: bool = True,
-                is_spt: bool = True,
-                expected_codes: Sequence[int] = (200,)) \
-                -> tuple[int, dict] | tuple[int, str] | tuple[None, None]:
-        code, resp = self._request(url, data=data,
-                                   session_id=session_id,
-                                   fika_api_key=fika_api_key,
-                                   compress=compress,
-                                   expected_codes=expected_codes)
+    def request(
+        self,
+        url: str,
+        *,
+        data: dict | None = None,
+        session_id: str | None = None,
+        fika_api_key: str | None = None,
+        compress: bool = True,
+        is_spt: bool = True,
+        expected_codes: Sequence[int] = (200,),
+    ) -> tuple[int, dict] | tuple[int, str] | tuple[None, None]:
+        code, resp = self._request(
+            url,
+            data=data,
+            session_id=session_id,
+            fika_api_key=fika_api_key,
+            compress=compress,
+            expected_codes=expected_codes,
+        )
         if code is None or resp is None:
             return None, None
 
@@ -227,9 +240,9 @@ class HTTP:
             return code, resp
 
         data = json.loads(resp)
-        err = data.get('err')
+        err = data.get("err")
         if err:
-            return err, data.get('errmsg')
+            return err, data.get("errmsg")
 
         return code, data
 
@@ -256,9 +269,15 @@ class MainWindow(tk.Tk):
         outer_frame = ttk.Frame(self, padding=2)
         outer_frame.pack()
 
-        ttk.Button(outer_frame, text="Download Profile", command=self.download_profile).grid(column=0, row=0, sticky=tk.EW)
-        ttk.Button(outer_frame, text="Overwrite Profile", command=self.overwrite_profile).grid(column=0, row=1, sticky=tk.EW)
-        self.upload_button = ttk.Button(outer_frame, text="Upload Profile", command=self.upload_profile)
+        ttk.Button(
+            outer_frame, text="Download Profile", command=self.download_profile
+        ).grid(column=0, row=0, sticky=tk.EW)
+        ttk.Button(
+            outer_frame, text="Overwrite Profile", command=self.overwrite_profile
+        ).grid(column=0, row=1, sticky=tk.EW)
+        self.upload_button = ttk.Button(
+            outer_frame, text="Upload Profile", command=self.upload_profile
+        )
         self.upload_button.grid(column=0, row=2, sticky=tk.EW)
         self.update_upload_button()
 
@@ -269,11 +288,17 @@ class MainWindow(tk.Tk):
         self.update_server_list()
         server_btn_frame = ttk.Frame(outer_frame)
         server_btn_frame.grid(column=1, row=2, sticky=tk.EW)
-        ttk.Button(server_btn_frame, text="+", command=self.add_server, width=2).pack(side="left")
-        self.delete_button = ttk.Button(server_btn_frame, text="-", command=self.delete_server, width=2)
+        ttk.Button(server_btn_frame, text="+", command=self.add_server, width=2).pack(
+            side="left"
+        )
+        self.delete_button = ttk.Button(
+            server_btn_frame, text="-", command=self.delete_server, width=2
+        )
         self.delete_button.pack(side="left")
         self.update_delete_button()
-        ttk.Button(server_btn_frame, text="Edit", command=self.edit_server).pack(side="right")
+        ttk.Button(server_btn_frame, text="Edit", command=self.edit_server).pack(
+            side="right"
+        )
 
     def _get_local_profile(self) -> dict | None:
         current_username = self.launcher_config.username
@@ -288,7 +313,7 @@ class MainWindow(tk.Tk):
                 profile = load_json(fp)
             except Exception:  # noqa: S112
                 continue
-            if profile['info']['username'] == current_username:
+            if profile["info"]["username"] == current_username:
                 return profile
 
         return None
@@ -302,13 +327,13 @@ class MainWindow(tk.Tk):
             if not fp.is_dir():
                 continue
 
-            profile_fp = fp / f'{fp.name}.json'
+            profile_fp = fp / f"{fp.name}.json"
 
             try:
                 profile = load_json(profile_fp)
             except Exception:  # noqa: S112
                 continue
-            if profile['info']['username'] == current_username:
+            if profile["info"]["username"] == current_username:
                 return profile_fp
 
         return None
@@ -338,8 +363,8 @@ class MainWindow(tk.Tk):
         status, session_id = self.http.login(server, creds)
         if status is None or session_id is None:
             return
-        elif session_id == 'FAILED':
-            error(f'Profile with name "{creds['Username']}" does not exist in server.')
+        elif session_id == "FAILED":
+            error(f'Profile with name "{creds["Username"]}" does not exist in server.')
             return
         elif status != 200:
             error(f"Unexpected response:\n{status} {session_id}")
@@ -356,16 +381,16 @@ class MainWindow(tk.Tk):
             error(f"Unexpected response:\n{status} {response}")
             return
 
-        profile: dict[str, Any] = response['profile']  # ty:ignore[invalid-argument-type]
-        mod_data: dict[str, str] = response.get('modData', {})  # ty:ignore[invalid-argument-type, possibly-missing-attribute]
+        profile: dict[str, Any] = response["profile"]  # ty:ignore[invalid-argument-type]
+        mod_data: dict[str, str] = response.get("modData", {})  # ty:ignore[invalid-argument-type, possibly-missing-attribute]
 
         profile_dir = FIKA_PROFILES / session_id
         profile_dir.mkdir(parents=True, exist_ok=True)
-        fp = profile_dir / f'{session_id}.json'
-        fp.write_text(json.dumps(profile, indent='\t'))
+        fp = profile_dir / f"{session_id}.json"
+        fp.write_text(json.dumps(profile, indent="\t"))
 
         for mod, data in mod_data.items():
-            fp = profile_dir / f'{mod}.json'
+            fp = profile_dir / f"{mod}.json"
             fp.write_text(data)
 
         info("Profile downloaded successfully.")
@@ -377,10 +402,14 @@ class MainWindow(tk.Tk):
             return
 
         url = urljoin(self.app_config.current_server["Url"], HTTP.UPLOAD_ENDPOINT)
-        status, data = self.http.request(url, data=profile,
-                                         fika_api_key=self.app_config.current_server["FikaApiKey"],
-                                         compress=False, is_spt=False,
-                                         expected_codes=(200, 400, 401, 423, 500))
+        status, data = self.http.request(
+            url,
+            data=profile,
+            fika_api_key=self.app_config.current_server["FikaApiKey"],
+            compress=False,
+            is_spt=False,
+            expected_codes=(200, 400, 401, 423, 500),
+        )
         if status is None:
             return
 
@@ -392,10 +421,10 @@ class MainWindow(tk.Tk):
 
     def update_upload_button(self):
         server = self.app_config.current_server
-        if server['FikaApiKey']:
-            self.upload_button.configure(state='normal')
+        if server["FikaApiKey"]:
+            self.upload_button.configure(state="normal")
         else:
-            self.upload_button.configure(state='disabled')
+            self.upload_button.configure(state="disabled")
 
     def server_selected(self, _):
         if self.server_list.current() == self.app_config.current_index:
@@ -407,7 +436,9 @@ class MainWindow(tk.Tk):
         self.update_upload_button()
 
     def update_server_list(self):
-        self.server_list.configure(values=[server["Name"] for server in self.app_config.data])
+        self.server_list.configure(
+            values=[server["Name"] for server in self.app_config.data]
+        )
         self.server_list.current(self.app_config.current_index)
 
     def add_server(self):
@@ -424,7 +455,9 @@ class MainWindow(tk.Tk):
         server = self.app_config.current_server
         name = server["Name"]
         url = server["Url"]
-        confirm = messagebox.askyesno("Confirmation", f'Really delete server?\nName: {name}\nURL: {url}')
+        confirm = messagebox.askyesno(
+            "Confirmation", f"Really delete server?\nName: {name}\nURL: {url}"
+        )
 
         if confirm:
             self.app_config.remove_server()
@@ -434,9 +467,9 @@ class MainWindow(tk.Tk):
 
     def update_delete_button(self):
         if len(self.app_config.data) > 1:
-            self.delete_button.configure(state='normal')
+            self.delete_button.configure(state="normal")
         else:
-            self.delete_button.configure(state='disabled')
+            self.delete_button.configure(state="disabled")
 
     def edit_server(self):
         window = EditServerWindow.prefill(self, self.app_config.current_server)
@@ -481,7 +514,7 @@ class EditServerWindow(tk.Toplevel):
         btn_frame = ttk.Frame(frame)
         btn_frame.pack(anchor=tk.SE)
         ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side=tk.RIGHT)
-        ttk.Button(btn_frame, text="Ok",command=self.ok).pack(side=tk.RIGHT)
+        ttk.Button(btn_frame, text="Ok", command=self.ok).pack(side=tk.RIGHT)
 
         self.grab_set()
 
@@ -501,7 +534,11 @@ class EditServerWindow(tk.Toplevel):
         return self
 
     def ok(self):
-        self.server = ConfigServer(Name=self.__name.get(), Url=self.__url.get(), FikaApiKey=self.__fika_api_key.get())
+        self.server = ConfigServer(
+            Name=self.__name.get(),
+            Url=self.__url.get(),
+            FikaApiKey=self.__fika_api_key.get(),
+        )
         self.destroy()
 
 
@@ -514,12 +551,12 @@ def info(message: str):
 
 
 def load_json(fp: Path):
-    return json.loads(fp.read_text('utf-8'))
+    return json.loads(fp.read_text("utf-8"))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if not GAME_EXE.exists():
-        error('EscapeFromTarkov.exe not found.')
+        error("EscapeFromTarkov.exe not found.")
         sys.exit()
 
     FIKA_PROFILES.mkdir(parents=True, exist_ok=True)
