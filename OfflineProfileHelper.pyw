@@ -1,4 +1,5 @@
 #!/usr/bin/env pythonw3
+# ruff: noqa: S310        https://github.com/astral-sh/ruff/issues/7918
 import json
 import shutil
 import ssl
@@ -150,7 +151,11 @@ class HTTP:
                  compress: bool = True,
                  expected_codes: Sequence[int] = (200,)) \
                  -> tuple[int, str] | tuple[None, None]:
-        req = Request(url)  # noqa: S310
+        if not url.startswith(('http:', 'https:')):
+            error('Invalid server URL.')
+            return None, None
+
+        req = Request(url)
         if data is not None:
             if compress:
                 req.data = self.compress_json(data)
@@ -162,7 +167,7 @@ class HTTP:
             req.add_header("Authorization", f"Bearer {fika_api_key}")
 
         try:
-            resp = urlopen(req, timeout=3, context=self._ssl)  # noqa: S310
+            resp = urlopen(req, timeout=3, context=self._ssl)
         except HTTPError as e:
             if e.status in expected_codes:
                 if compress:
