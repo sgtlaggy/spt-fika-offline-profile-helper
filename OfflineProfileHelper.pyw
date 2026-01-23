@@ -3,11 +3,11 @@ import json
 import shutil
 import ssl
 import sys
-import zlib
 import tkinter as tk
+import zlib
 from pathlib import Path
 from tkinter import messagebox, ttk
-from typing import Any, TypedDict, Self, Sequence
+from typing import Any, Self, Sequence, TypedDict
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
